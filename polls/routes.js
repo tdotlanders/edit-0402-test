@@ -1,10 +1,27 @@
 const express = require("express");
 const router = express.Router();
+const schemas = require("./schemas");
 const services = require("./services");
+const { pollsCollection } = require("../db/mongodb");
 
 router.get("/", async (req, res) => {
   const polls = await services.getAllPolls();
   res.status(200).json(polls);
+});
+
+router.post("/", async (req, res) => {
+  const { error, value } = schemas.createPollSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json(error.details);
+  }
+
+  const db = await getDb();
+
+  const insertRes = await db.collection(pollsCollection).insertOne(value);
+
+  const result = await services.getPollById(insertRes.insertedId);
+
+  res.status(201).json(result);
 });
 
 router.delete("/:id", async (req, res) => {
