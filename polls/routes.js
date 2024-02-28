@@ -3,6 +3,7 @@ const router = express.Router();
 const schemas = require("./schemas");
 const services = require("./services");
 const { pollsCollection, getDB } = require("../db/mongodb");
+const { options } = require("joi");
 
 router.get("/", async (req, res) => {
   const polls = await services.getAllPolls();
@@ -24,25 +25,22 @@ router.post("/", async (req, res) => {
     return res.status(400).json(error.details);
   }
 
-  const db = await getDB();
+  value.options = value.options.map((option) => ({ option, vote: 0 }));
 
-  const insertRes = await db.collection(pollsCollection).insertOne({
-    question: value.question,
-    options: value.options,
-  });
+  const createPoll = await services.createPoll(value, options);
 
-  const result = await services.getPollById(insertRes.insertedId);
-
-  res.status(201).json(result);
+  res.status(201).json(createPoll);
 });
 
-router.put("/:id", async (req, res) => {
+router.put("/:id/vote", async (req, res) => {
   // validate body
-  const { error } = schemas.createPollSchema.validate(req.body);
-  if (error) {
-    return res.status(400).json(error.details);
+  const { voteError } = schemas.voteSchema.validate(req.body);
+  if (voteError) {
+    return res.status(400).json(voteError.details);
   }
+
   const pollId = req.params.id;
+  const selectedOption = req.body.option;
 
   const poll = await services.getPollById(pollId);
   if (!poll) {
@@ -50,14 +48,18 @@ router.put("/:id", async (req, res) => {
   }
 
   // check poll has vote option
-  const { voteError } = schemas.voteSchema.validate(req.body);
-  if (voteError) {
-    return res.status(400).json(voteError.details);
-  }
-  res.status(200).json();
-});
 
-// update poll - increment vote count
+  // update poll - increment vote count
+
+  // ["a", "b"]
+  // [{ name: "a", votes: 0 }, { name: "b", votes: 0 }]
+
+  const updatedPoll = await services.updatePoll(pollId, selectedOption);
+  if (!updatedPoll) {
+    return res.status(404).json({ error: "failed to update poll" });
+  }
+  res.status(200).json({ message: "poll sucessfully updated" });
+});
 
 router.delete("/:id", async (req, res) => {
   const pollId = req.params.id;
