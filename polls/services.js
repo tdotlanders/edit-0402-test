@@ -21,6 +21,33 @@ async function getAllPolls() {
   }
 }
 
+async function createPoll(value) {
+  try {
+    return await db.getDB().collection(db.pollsCollection).insertOne(value);
+  } catch (err) {
+    console.log(err);
+    return null;
+  }
+}
+
+async function updatePoll(pollId, selectedOption) {
+  try {
+    return await db
+      .getDB()
+      .collection(db.pollsCollection)
+      .updateOne(
+        {
+          _id: db.toMongoID(pollId),
+          "options.option": selectedOption,
+        },
+        { $inc: { [`options.$.votes`]: 1 } }
+      );
+  } catch (error) {
+    console.log("Error updating poll", error);
+    return updatePoll;
+  }
+}
+
 async function deletePollById(pollId) {
   try {
     const result = await db
@@ -37,6 +64,8 @@ async function deletePollById(pollId) {
 
 module.exports = {
   getPollById,
+  createPoll,
   getAllPolls,
+  updatePoll,
   deletePollById,
 };

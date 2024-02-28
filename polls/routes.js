@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const schemas = require("./schemas");
 const services = require("./services");
-const { pollsCollection } = require("../db/mongodb");
+const { pollsCollection, getDB } = require("../db/mongodb");
+const { options } = require("joi");
 
 router.get("/", async (req, res) => {
   const polls = await services.getAllPolls();
@@ -24,13 +25,40 @@ router.post("/", async (req, res) => {
     return res.status(400).json(error.details);
   }
 
-  const db = await getDb();
+  value.options = value.options.map((option) => ({ option, vote: 0 }));
 
-  const insertRes = await db.collection(pollsCollection).insertOne(value);
+  const createPoll = await services.createPoll(value, options);
 
-  const result = await services.getPollById(insertRes.insertedId);
+  res.status(201).json(createPoll);
+});
 
-  res.status(201).json(result);
+router.put("/:id/vote", async (req, res) => {
+  // validate body
+  const { voteError } = schemas.voteSchema.validate(req.body);
+  if (voteError) {
+    return res.status(400).json(voteError.details);
+  }
+
+  const pollId = req.params.id;
+  const selectedOption = req.body.option;
+
+  const poll = await services.getPollById(pollId);
+  if (!poll) {
+    return res.status(404).json({ error: "poll not found" });
+  }
+
+  // check poll has vote option
+
+  // update poll - increment vote count
+
+  // ["a", "b"]
+  // [{ name: "a", votes: 0 }, { name: "b", votes: 0 }]
+
+  const updatedPoll = await services.updatePoll(pollId, selectedOption);
+  if (!updatedPoll) {
+    return res.status(404).json({ error: "failed to update poll" });
+  }
+  res.status(200).json({ message: "poll sucessfully updated" });
 });
 
 router.delete("/:id", async (req, res) => {
