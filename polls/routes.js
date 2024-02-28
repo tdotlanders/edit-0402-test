@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const schemas = require("./schemas");
 const services = require("./services");
+const middle = require("../middleware");
 const { pollsCollection, getDB } = require("../db/mongodb");
 const { options } = require("joi");
 
@@ -18,6 +19,8 @@ router.get("/:id", async (req, res) => {
   }
   res.status(200).json(poll);
 });
+
+router.use(middle.auth);
 
 router.post("/", async (req, res) => {
   const { error, value } = schemas.createPollSchema.validate(req.body);
@@ -46,13 +49,6 @@ router.put("/:id/vote", async (req, res) => {
   if (!poll) {
     return res.status(404).json({ error: "poll not found" });
   }
-
-  // check poll has vote option
-
-  // update poll - increment vote count
-
-  // ["a", "b"]
-  // [{ name: "a", votes: 0 }, { name: "b", votes: 0 }]
 
   const updatedPoll = await services.updatePoll(pollId, selectedOption);
   if (!updatedPoll) {
