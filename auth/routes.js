@@ -18,11 +18,20 @@ router.post("/signin", async (req, res) => {
 
   const isValidPwd = await services.validatePassword(
     value.password,
-    user.password
+    user.password,
+    value.email
   );
   if (!isValidPwd) {
+    await services.incrementLoginAttempts(value.email);
+    const userAfterIncrement = await services.findUserByEmail(value.email);
+    if (userAfterIncrement.loginAttempts >= 3) {
+      await services.lockAccount(value.email);
+      return res.status(401).json({ error: "account locked" });
+    }
     return res.status(401).json({ error: "unauthorized" });
   }
+
+  await services.resetLoginAttempts(value.email);
 
   const token = services.generateAccessToken(user._id);
 
